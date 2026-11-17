@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Солнечная система — интерактивная карта</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;height:100%;overflow:hidden;background:#04050a;
+    font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #sky{display:block;width:100vw;height:100vh;cursor:default}
+
+  #hint{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    color:#8fa6c9;font-size:13.5px;letter-spacing:.4px;
+    background:rgba(10,15,28,.55);border:1px solid rgba(110,160,255,.18);
+    padding:9px 20px;border-radius:100px;backdrop-filter:blur(8px);
+    pointer-events:none;transition:opacity .6s, transform .6s;
+    animation:pulseHint 3s ease-in-out infinite;
+  }
+  #hint.hide{opacity:0;transform:translateX(-50%) translateY(12px)}
+  @keyframes pulseHint{0%,100%{opacity:.75}50%{opacity:1}}
+
+  #panel{
+    --accent:#7fb2ff;
+    position:fixed;top:0;right:0;height:100%;width:min(430px,94vw);
+    padding:44px 34px 40px;
+    background:linear-gradient(165deg,rgba(18,23,40,.94),rgba(7,9,17,.97));
+    backdrop-filter:blur(18px);
+    border-left:1px solid rgba(120,170,255,.16);
+    box-shadow:-40px 0 80px rgba(0,0,0,.65);
+    transform:translateX(106%);
+    transition:transform .5s cubic-bezier(.22,.9,.3,1);
+    overflow-y:auto;color:#dfe7f5;z-index:10;
+  }
+  #panel.open{transform:translateX(0)}
+  #panel::-webkit-scrollbar{width:6px}
+  #panel::-webkit-scrollbar-thumb{background:rgba(120,170,255,.25);border-radius:3px}
+
+  #close{
+    position:absolute;top:18px;right:20px;width:36px;height:36px;
+    border-radius:50%;border:1px solid rgba(140,180,255,.22);
+    background:rgba(255,255,255,.04);color:#9fb6d8;font-size:19px;line-height:1;
+    cursor:pointer;transition:.25s;display:flex;align-items:center;justify-content:center;
+  }
+  #close:hover{background:rgba(255,255,255,.12);color:#fff;transform:rotate(90deg)}
+
+  .orb{
+    width:88px;height:88px;border-radius:50%;margin-bottom:26px;
+    background:radial-gradient(circle at 33% 30%, #fff6, transparent 62%), var(--accent);
+    box-shadow:0 0 26px -4px var(--accent), 0 0 60px -10px var(--accent),
+               inset -14px -12px 26px rgba(0,0,0,.55);
+    animation:orbFloat 6s ease-in-out infinite;
+  }
+  @keyframes orbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+
+  #pName{margin:0 0 6px;font-size:32px;font-weight:600;letter-spacing:.5px;
+    background:linear-gradient(90deg,#fff,var(--accent));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  #pType{margin:0 0 26px;font-size:12.5px;letter-spacing:2.2px;text-transform:uppercase;color:#7f93b5}
+
+  #pStats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+  .stat{
+    background:rgba(255,255,255,.035);border:1px solid rgba(120,170,255,.12);
+    border-radius:12px;padding:11px 13px;
+  }
+  .stat span{display:block;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;
+    color:#7b8fb0;margin-bottom:5px}
+  .stat b{font-size:14.5px;font-weight:600;color:#eaf1ff}
+  .stat.wide{grid-column:1/-1}
+
+  #pDesc{font-size:14.5px;line-height:1.72;color:#a8b8d2;margin:0 0 16px}
+  #pDesc:last-child{margin-bottom:0}
+
+  @media (max-width:560px){
+    #panel{width:100vw;border-left:none;padding:38px 24px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="sky"></canvas>
+<div id="hint">Нажмите на планету или Солнце, чтобы узнать больше</div>
+
+<aside id="panel">
+  <button id="close" aria-label="Закрыть">✕</button>
+  <div class="orb" id="orb"></div>
+  <h2 id="pName">—</h2>
+  <p id="pType">—</p>
+  <div id="pStats"></div>
+  <p id="pDesc"></p>
+</aside>
+
+<script>
+(() => {
+"use strict";
+const TAU = Math.PI * 2;
+const canvas = document.getElementById('sky');
+const ctx = canvas.getContext('2d');
+
+const SUN = {
+  name: 'Солнце',
+  type: 'Звезда · спектральный класс G2V',
+  color: '#ffb43c',
+  stats: [
+    ['Диаметр', '1 392 700 км'],
+    ['Масса', '1,989 × 10³⁰ кг'],
+    ['Доля массы системы', '99,86 %'],
+    ['Температура поверхности', '5 500 °C'],
+    ['Температура ядра', '≈ 15 000 000 °C'],
+    ['Возраст', '4,6 млрд лет'],
+    ['Состав', '73 % водорода, 25 % гелия'],
+    ['Вращение на экваторе', '25,4 суток']
+  ],
+  desc: [
+    'Солнце — обычная жёлтая звезда главной последовательности, но именно оно задаёт всё: свет, тепло, погоду, климат и само существование жизни на Земле. Внутри идёт термоядерный синтез — каждую секунду около 600 миллионов тонн водорода превращаются в гелий, а выделяющаяся энергия добирается до поверхности десятки тысяч лет.',
+    'Свет от Солнца летит до Земли 8 минут 20 секунд, поэтому мы всегда видим его с задержкой. Светимость звезды медленно растёт примерно на 1 % каждые 100 миллионов лет, а через 5 миллиардов лет Солнце раздуется в красный гигант и поглотит ближайшие планеты.'
+  ].join(' ')
+};
+
+const PLANETS = [
+  {
+    name:'Меркурий', dist:0.155, r:0.0105, period:0.2408,
+    light:'#d3c8bf', color:'#8d8178', dark:'#231e1a',
+    type:'Планета земной группы',
+    stats:[
+      ['Диаметр','4 879 км'],
+      ['Масса','0,055 массы Земли'],
+      ['От Солнца','57,9 млн км'],
+      ['Год','88 суток'],
+      ['Сутки','58,6 земных'],
+      ['Температура','−173…+427 °C'],
+      ['Гравитация','0,38 g'],
+      ['Спутники','нет']
+    ],
+    desc:[
+      'Самая маленькая и самая быстрая планета Солнечной системы. Атмосферы практически нет, поэтому перепады температур здесь самые большие — днём поверхность раскаляется до +427 °C, а ночью остывает до −173 °C.',
+      'Кратеры на Меркурии почти не сглаживаются эрозией, поэтому поверхность выглядит как лунная и хранит следы древних столкновений. В полярных кратерах, куда никогда не попадает солнечный свет, обнаружен водяной лёд. У планеты огромное железное ядро — оно занимает около 85 % радиуса.'
+    ].join(' ')
+  },
+  {
+    name:'Венера', dist:0.225, r:0.0138, period:0.6152,
+    light:'#ffe4a8', color:'#dcb26a', dark:'#4a3418',
+    type:'Планета земной группы',
+    stats:[
+      ['Диаметр','12 104 км'],
+      ['Масса','0,815 массы Земли'],
+      ['От Солнца','108,2 млн км'],
+      ['Год','225 суток'],
+      ['Сутки','243 земных'],
+      ['Температура','+464 °C'],
+      ['Давление','92 атм'],
+      ['Спутники','нет']
+    ],
+    desc:[
+      'Самая горячая планета системы: плотная атмосфера из углекислого газа создаёт чудовищный парниковый эффект, из-за которого поверхность разогрета сильнее, чем у Меркурия, хотя Венера дальше от Солнца.',
+      'Венера вращается в обратную сторону по сравнению с большинством планет и делает оборот медленнее, чем летит по орбите, — сутки здесь длиннее года. Облака состоят из капелек серной кислоты, а давление у поверхности примерно как на глубине 900 метров в океане.'
+    ].join(' ')
+  },
+  {
+    name:'Земля', dist:0.30, r:0.0145, period:1,
+    light:'#a9d8ff', color:'#3f7fc4', dark:'#0a1b2e', land:true,
+    type:'Планета земной группы',
+    stats:[
+      ['Диаметр','12 742 км'],
+      ['Масса','5,97 × 10²⁴ кг'],
+      ['От Солнца','149,6 млн км'],
+      ['Год','365,25 суток'],
+      ['Сутки','23 ч 56 мин'],
+      ['Температура','+15 °C (сред.)'],
+      ['Гравитация','1 g'],
+      ['Спутники','1 — Луна']
+    ],
+    desc:[
+      'Единственный известный мир с жидкой водой на поверхности и жизнью. Атмосфера на 78 % состоит из азота и на 21 % из кислорода, а магнитное поле защищает планету от солнечного ветра и жёсткой радиации.',
+      'Наклон оси в 23,4° даёт смену времён года, а Луна стабилизирует этот наклон и создаёт приливы. Земля — самая плотная планета Солнечной системы, а её поверхность на 71 % покрыта океанами, причём большую часть пресной воды планета хранит в ледниках.'
+    ].join(' ')
+  },
+  {
+    name:'Марс', dist:0.375, r:0.0115, period:1.8808,
+    light:'#ffb48a', color:'#b8501f', dark:'#3a1408',
+    type:'Планета земной группы',
+    stats:[
+      ['Диаметр','6 779 км'],
+      ['Масса','0,107 массы Земли'],
+      ['От Солнца','227,9 млн км'],
+      ['Год','687 суток'],
+      ['Сутки','24 ч 37 мин'],
+      ['Температура','−63 °C (сред.)'],
+      ['Гравитация','0,38 g'],
+      ['Спутники','2 — Фобос и Деймос']
+    ],
+    desc:[
+      '«Красная планета» обязана оттенком оксиду железа в грунте — по сути, поверхность покрыта ржавчиной. Здесь находится высочайший вулкан системы, Олимп, высотой 21 км, и гигантский каньон Долины Маринер длиной около 4 000 км.',
+      'Атмосфера тонкая и на 95 % углекислотная, поэтому пыльные бури могут накрывать всю планету целиком. Вода сохранилась в полярных шапках и, вероятно, под поверхностью. У Марса два небольших спутника неправильной формы — Фобос и Деймос.'
+    ].join(' ')
+  },
+  {
+    name:'Юпитер', dist:0.51, r:0.0330, period:11.862,
+    light:'#fff3d4', color:'#c9a878', dark:'#4a3520', bands:true,
+    type:'Газовый гигант',
+    stats:[
+      ['Диаметр','139 820 км'],
+      ['Масса','318 масс Земли'],
+      ['От Солнца','778,5 млн км'],
+      ['Год','11,86 лет'],
+      ['Сутки','9 ч 56 мин'],
+      ['Температура','−108 °C'],
+      ['Гравитация','2,53 g'],
+      ['Спутники','95']
+    ],
+    desc:[
+      'Крупнейшая планета Солнечной системы — в неё поместилось бы 1 300 Земель, а масса Юпитера вдвое больше массы всех остальных планет вместе взятых. Это газовый гигант без твёрдой поверхности: под облаками давление и температура растут настолько, что водород переходит в жидкое металлическое состояние.',
+      'Большое красное пятно — гигантский ураган, который наблюдают более 350 лет, и он до сих пор больше Земли. У Юпитера мощнейшее магнитное поле в системе и 95 известных спутников, включая вулканическую Ио и подлёдный океан Европы.'
+    ].join(' ')
+  },
+  {
+    name:'Сатурн', dist:0.64, r:0.0285, period:29.457,
+    light:'#fff0cf', color:'#d6bd8d', dark:'#4a3a1e', bands:true, ring:true,
+    type:'Газовый гигант',
+    stats:[
+      ['Диаметр','116 460 км'],
+      ['Масса','95 масс Земли'],
+      ['От Солнца','1,43 млрд км'],
+      ['Год','29,5 лет'],
+      ['Сутки','10 ч 42 мин'],
+      ['Температура','−139 °C'],
+      ['Гравитация','1,06 g'],
+      ['Спутники','146']
+    ],
+    desc:[
+      'Знаменит системой колец из миллиардов частиц льда и камня — от пылинок до глыб размером с дом. Кольца тянутся на сотни тысяч километров, но их толщина всего десятки метров, а средняя плотность самой планеты меньше плотности воды.',
+      'Сатурн — второй по массе газовый гигант и рекордсмен по числу спутников: их известно 146. Крупнейший, Титан, единственный в системе обладает плотной атмосферой и морями из жидкого метана. Ещё один спутник, Энцелад, выбрасывает в космос гейзеры водяного пара.'
+    ].join(' ')
+  },
+  {
+    name:'Уран', dist:0.775, r:0.0205, period:84.011,
+    light:'#d6f7fb', color:'#8fd3dc', dark:'#1b4a55',
+    type:'Ледяной гигант',
+    stats:[
+      ['Диаметр','50 724 км'],
+      ['Масса','14,5 масс Земли'],
+      ['От Солнца','2,87 млрд км'],
+      ['Год','84 года'],
+      ['Сутки','17 ч 14 мин'],
+      ['Температура','−195 °C'],
+      ['Наклон оси','97,8°'],
+      ['Спутники','28']
+    ],
+    desc:[
+      'Единственная планета, лежащая «на боку»: её ось наклонена почти на 98°, поэтому полюса по 42 года находятся то на свету, то в тени. Метан в атмосфере поглощает красный свет и придаёт планете характерный бирюзовый оттенок.',
+      'Уран — ледяной гигант: под водородно-гелиевой оболочкой скрыта мантия из водного, аммиачного и метанового льда. Здесь зафиксирована самая низкая температура в системе — до −224 °C, а его кольца, открытые в 1977 году, очень тонкие и тёмные. Планету пока посетил только один аппарат — «Вояджер-2» в 1986 году.'
+    ].join(' ')
+  },
+  {
+    name:'Нептун', dist:0.89, r:0.0198, period:164.79,
+    light:'#a9c8ff', color:'#2f5fc4', dark:'#0a1538',
+    type:'Ледяной гигант',
+    stats:[
+      ['Диаметр','49 244 км'],
+      ['Масса','17 масс Земли'],
+      ['От Солнца','4,50 млрд км'],
+      ['Год','164,8 лет'],
+      ['Сутки','16 ч 06 мин'],
+      ['Температура','−201 °C'],
+      ['Ветер','до 2 100 км/ч'],
+      ['Спутники','16']
+    ],
+    desc:[
+      'Самая удалённая планета и самая ветреная — скорость ветра достигает 2 100 км/ч, хотя источник такой энергии до сих пор не до конца понятен. Нептун был вычислен «на кончике пера» по возмущениям орбиты Урана и открыт в 1846 году, что стало триумфом небесной механики.',
+      'Сутки здесь длятся 16 часов, а год — почти 165 земных лет. На планете наблюдались тёмные пятна размером с Землю, которые возникают и исчезают за несколько лет. Крупнейший спутник, Тритон, движется в обратную сторону и, скорее всего, является захваченным объектом пояса Койпера.'
+    ].join(' ')
+  }
+];
+
+PLANETS.forEach((p, i) => {
+  p.angle = i * 2.39996;
+  p.speed = 0.30 / Math.pow(p.period, 0.55);
+});
+
+const stars = [];
+for (let i = 0; i < 340; i++) {
+  stars.push({
+    x: Math.random(), y: Math.random(),
+    r: Math.random() * 1.5 + 0.25,
+    ph: Math.random() * TAU,
+    sp: 0.4 + Math.random() * 1.8
+  });
+}
+
+let W = 0, H = 0, cx = 0, cy = 0, maxR = 0, sunR = 0;
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+function resize() {
+  W = canvas.clientWidth;
+  H = canvas.clientHeight;
+  canvas.width  = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx = W / 2;
+  cy = H / 2;
+  maxR = Math.min(W, H) * 0.44;
+  sunR = Math.max(16, maxR * 0.075);
+}
+window.addEventListener('resize', resize);
+
+function drawStars(t) {
+  for (const s of stars) {
+    const a = 0.35 + 0.65 * Math.abs(Math.sin(t * s.sp + s.ph));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = s.r > 1.15 ? '#dfeaff' : '#9fb4d8';
+    ctx.beginPath();
+    ctx.arc(s.x * W, s.y * H, s.r, 0, TAU);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawOrbits() {
+  ctx.lineWidth = 1;
+  for (const p of PLANETS) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, p.dist * maxR, 0, TAU);
+    ctx.strokeStyle = 'rgba(120,165,255,0.10)';
+    ctx.stroke();
+  }
+}
+
+function drawSun(t) {
+  const pulse = 1 + Math.sin(t * 1.6) * 0.02 + Math.sin(t * 3.3) * 0.012;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(cx, cy, sunR * 0.6, cx, cy, sunR * 7.5 * pulse);
+  g.addColorStop(0,    'rgba(255,190,80,0.55)');
+  g.addColorStop(0.22, 'rgba(255,130,30,0.18)');
+  g.addColorStop(0.55, 'rgba(255,90,10,0.06)');
+  g.addColorStop(1,    'rgba(255,70,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, sunR * 7.5 * pulse, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+
+  const core = ctx.createRadialGradient(
+    cx - sunR * 0.18, cy - sunR * 0.18, sunR * 0.08,
+    cx, cy, sunR
+  );
+  core.addColorStop(0,    '#fffdf0');
+  core.addColorStop(0.40, '#ffe27a');
+  core.addColorStop(0.75, '#ffab33');
+  core.addColorStop(1,    '#ff6a00');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(cx, cy, sunR, 0, TAU);
+  ctx.fill();
+}
+
+function drawRing(x, y, r, front) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(-0.38);
+  ctx.scale(1, 0.34);
+
+  ctx.beginPath();
+  if (front) ctx.arc(0, 0, r * 2.05, 0, Math.PI);
+  else       ctx.arc(0, 0, r * 2.05, Math.PI, TAU);
+  ctx.strokeStyle = 'rgba(232,214,182,0.50)';
+  ctx.lineWidth = r * 0.95;
+  ctx.stroke();
+
+  ctx.beginPath();
+  if (front) ctx.arc(0, 0, r * 1.55, 0, Math.PI);
+  else       ctx.arc(0, 0, r * 1.55, Math.PI, TAU);
+  ctx.strokeStyle = 'rgba(255,244,214,0.30)';
+  ctx.lineWidth = r * 0.20;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawPlanet(p, t) {
+  const ang = p.angle + t * p.speed;
+  const d = p.dist * maxR;
+  const x = cx + Math.cos(ang) * d;
+  const y = cy + Math.sin(ang) * d;
+  const r = Math.max(3.4, p.r * maxR);
+
+  p._x = x; p._y = y; p._r = r;
+
+  const ux = Math.cos(ang), uy = Math.sin(ang);
+
+  if (p.ring) drawRing(x, y, r, false);
+
+  const g = ctx.createRadialGradient(
+    x - ux * r * 0.50, y - uy * r * 0.50, r * 0.06,
+    x, y, r * 1.18
+  );
+  g.addColorStop(0,    p.light);
+  g.addColorStop(0.42, p.color);
+  g.addColorStop(1,    p.dark);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.clip();
+
+  if (p.bands) {
+    ctx.globalAlpha = 0.20;
+    for (let i = 0; i < 8; i++) {
+      const h = (2 * r) / 8;
+      ctx.fillStyle = i % 2 ? p.dark : p.light;
+      ctx.fillRect(x - r, y - r + i * h, 2 * r, h * 0.95);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  if (p.land) {
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = '#3f8f52';
+    const blobs = [[-0.28, -0.20, 0.42, 0.34], [0.26, 0.05, 0.34, 0.30],
+                   [-0.10, 0.42, 0.38, 0.24], [0.36, -0.42, 0.26, 0.20]];
+    for (const [bx, by, bw, bh] of blobs) {
+      ctx.beginPath();
+      ctx.ellipse(x + bx * r, y + by * r, bw * r, bh * r, 0.4, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  const sx = x + ux * r * 0.62, sy = y + uy * r * 0.62;
+  const sg = ctx.createRadialGradient(sx, sy, r * 0.08, sx, sy, r * 1.95);
+  sg.addColorStop(0,    'rgba(0,0,0,0.78)');
+  sg.addColorStop(0.50, 'rgba(0,0,0,0.30)');
+  sg.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+
+  const hg = ctx.createRadialGradient(
+    x - ux * r * 0.55, y - uy * r * 0.55, 0,
+    x - ux * r * 0.55, y - uy * r * 0.55, r * 0.9
+  );
+  hg.addColorStop(0, 'rgba(255,255,255,0.38)');
+  hg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hg;
+  ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+
+  ctx.restore();
+
+  if (p.ring) drawRing(x, y, r, true);
+}
+
+const panel  = document.getElementById('panel');
+const orbEl  = document.getElementById('orb');
+const nameEl = document.getElementById('pName');
+const typeEl = document.getElementById('pType');
+const statEl = document.getElementById('pStats');
+const descEl = document.getElementById('pDesc');
+const hint   = document.getElementById('hint');
+
+let selected = null;
+const mouse = { x: -9999, y: -9999 };
+
+function hitTest(mx, my) {
+  for (const p of PLANETS) {
+    if (p._x === undefined) continue;
+    const dx = mx - p._x, dy = my - p._y;
+    const rad = Math.max(p._r + 11, 17);
+    if (dx * dx + dy * dy < rad * rad) return p;
+  }
+  const dx = mx - cx, dy = my - cy;
+  const sr = sunR + 8;
+  if (dx * dx + dy * dy < sr * sr) return SUN;
+  return null;
+}
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left;
+  mouse.y = e.clientY - rect.top;
+});
+canvas.addEventListener('mouseleave', () => { mouse.x = mouse.y = -9999; });
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+  if (hit) {
+    selected = hit;
+    openInfo(hit);
+  }
+});
+
+function openInfo(obj) {
+  nameEl.textContent = obj.name;
+  typeEl.textContent = obj.type;
+  orbEl.style.setProperty('--accent', obj.color);
+  panel.style.setProperty('--accent', obj.color);
+  statEl.innerHTML = obj.stats
+    .map(s => `<div class="stat"><span>${s[0]}</span><b>${s[1]}</b></div>`)
+    .join('');
+  descEl.textContent = obj.desc;
+  panel.classList.add('open');
+  panel.scrollTop = 0;
+  hint.classList.add('hide');
+}
+
+document.getElementById('close').addEventListener('click', () => {
+  panel.classList.remove('open');
+  selected = null;
+});
+
+canvas.addEventListener('dblclick', () => {
+  panel.classList.remove('open');
+  selected = null;
+});
+
+function frame(now) {
+  const t = now / 1000;
+
+  ctx.clearRect(0, 0, W, H);
+
+  drawStars(t);
+  drawOrbits();
+  drawSun(t);
+
+  for (const p of PLANETS) drawPlanet(p, t);
+
+  if (selected && selected !== SUN && selected._x !== undefined) {
+    ctx.beginPath();
+    ctx.arc(selected._x, selected._y, selected._r + 9, 0, TAU);
+    ctx.strokeStyle = 'rgba(150,200,255,0.55)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  const hit = hitTest(mouse.x, mouse.y);
+  canvas.style.cursor = hit ? 'pointer' : 'default';
+
+  if (hit && hit !== SUN && hit._x !== undefined) {
+    ctx.beginPath();
+    ctx.arc(hit._x, hit._y, hit._r + 8, 0, TAU);
+    ctx.strokeStyle = 'rgba(180,215,255,0.30)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = '500 12.5px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(210,228,255,0.9)';
+    ctx.fillText(hit.name, hit._x, hit._y - hit._r - 16);
+  }
+
+  if (hit === SUN) {
+    ctx.font = '500 12.5px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,225,170,0.95)';
+    ctx.fillText('Солнце', cx, cy - sunR - 16);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+resize();
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
