@@ -2,54 +2,81 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04050a">
 <title>Солнечная система — интерактивная карта</title>
 <style>
-  *{box-sizing:border-box}
-  html,body{
-    margin:0;height:100%;overflow:hidden;background:#04050a;
-    font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;
+  :root{
+    --bg:#04050a;
+    --panel-bg:linear-gradient(165deg,rgba(18,23,40,.96),rgba(7,9,17,.98));
+    --border:rgba(120,170,255,.16);
+    --text:#dfe7f5;
+    --muted:#8fa6c9;
+    --muted-2:#7b8fb0;
+    --accent:#7fb2ff;
+    --radius:14px;
+    --panel-w:min(430px,94vw);
+    --pad:clamp(20px,3.2vw,34px);
+    --title:clamp(24px,3.6vw,32px);
+    --body:clamp(13.5px,1.55vw,14.5px);
+    --stat-b:clamp(13px,1.7vw,14.5px);
+    --safe-t:env(safe-area-inset-top,0px);
+    --safe-b:env(safe-area-inset-bottom,0px);
+    --safe-r:env(safe-area-inset-right,0px);
   }
-  #sky{display:block;width:100vw;height:100vh;cursor:default}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{
+    margin:0;height:100%;overflow:hidden;background:var(--bg);
+    font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;color:var(--text);
+    overscroll-behavior:none;
+  }
+  #sky{display:block;width:100vw;height:100vh;height:100dvh;cursor:default;touch-action:none}
 
   #hint{
-    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
-    color:#8fa6c9;font-size:13.5px;letter-spacing:.4px;
-    background:rgba(10,15,28,.55);border:1px solid rgba(110,160,255,.18);
-    padding:9px 20px;border-radius:100px;backdrop-filter:blur(8px);
+    position:fixed;left:50%;bottom:calc(26px + var(--safe-b));transform:translateX(-50%);
+    color:var(--muted);font-size:clamp(12px,1.5vw,13.5px);letter-spacing:.3px;
+    background:rgba(10,15,28,.6);border:1px solid rgba(110,160,255,.18);
+    padding:10px 20px;border-radius:100px;backdrop-filter:blur(8px);
     pointer-events:none;transition:opacity .6s, transform .6s;
     animation:pulseHint 3s ease-in-out infinite;
+    max-width:calc(100vw - 32px);text-align:center;line-height:1.4;
+    z-index:5;
   }
   #hint.hide{opacity:0;transform:translateX(-50%) translateY(12px)}
   @keyframes pulseHint{0%,100%{opacity:.75}50%{opacity:1}}
 
   #panel{
-    --accent:#7fb2ff;
-    position:fixed;top:0;right:0;height:100%;width:min(430px,94vw);
-    padding:44px 34px 40px;
-    background:linear-gradient(165deg,rgba(18,23,40,.94),rgba(7,9,17,.97));
-    backdrop-filter:blur(18px);
-    border-left:1px solid rgba(120,170,255,.16);
+    position:fixed;top:0;right:0;height:100%;height:100dvh;width:var(--panel-w);
+    padding:calc(44px + var(--safe-t)) var(--pad) calc(40px + var(--safe-b));
+    padding-right:calc(var(--pad) + var(--safe-r));
+    background:var(--panel-bg);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border-left:1px solid var(--border);
     box-shadow:-40px 0 80px rgba(0,0,0,.65);
     transform:translateX(106%);
     transition:transform .5s cubic-bezier(.22,.9,.3,1);
-    overflow-y:auto;color:#dfe7f5;z-index:10;
+    overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+    z-index:10;
   }
   #panel.open{transform:translateX(0)}
   #panel::-webkit-scrollbar{width:6px}
   #panel::-webkit-scrollbar-thumb{background:rgba(120,170,255,.25);border-radius:3px}
 
   #close{
-    position:absolute;top:18px;right:20px;width:36px;height:36px;
+    position:absolute;top:calc(18px + var(--safe-t));right:calc(20px + var(--safe-r));
+    width:44px;height:44px;min-width:44px;min-height:44px;
     border-radius:50%;border:1px solid rgba(140,180,255,.22);
-    background:rgba(255,255,255,.04);color:#9fb6d8;font-size:19px;line-height:1;
+    background:rgba(255,255,255,.04);color:#9fb6d8;font-size:20px;line-height:1;
     cursor:pointer;transition:.25s;display:flex;align-items:center;justify-content:center;
+    padding:0;
   }
-  #close:hover{background:rgba(255,255,255,.12);color:#fff;transform:rotate(90deg)}
+  #close:hover,#close:focus-visible{background:rgba(255,255,255,.12);color:#fff;transform:rotate(90deg)}
+  #close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
   .orb{
-    width:88px;height:88px;border-radius:50%;margin-bottom:26px;
+    width:clamp(64px,9vw,88px);height:clamp(64px,9vw,88px);
+    border-radius:50%;margin-bottom:clamp(18px,2.6vw,26px);
     background:radial-gradient(circle at 33% 30%, #fff6, transparent 62%), var(--accent);
     box-shadow:0 0 26px -4px var(--accent), 0 0 60px -10px var(--accent),
                inset -14px -12px 26px rgba(0,0,0,.55);
@@ -57,37 +84,118 @@
   }
   @keyframes orbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 
-  #pName{margin:0 0 6px;font-size:32px;font-weight:600;letter-spacing:.5px;
+  #pName{
+    margin:0 0 6px;font-size:var(--title);font-weight:600;letter-spacing:.3px;
     background:linear-gradient(90deg,#fff,var(--accent));
-    -webkit-background-clip:text;background-clip:text;color:transparent}
-  #pType{margin:0 0 26px;font-size:12.5px;letter-spacing:2.2px;text-transform:uppercase;color:#7f93b5}
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    line-height:1.15;
+  }
+  #pType{
+    margin:0 0 clamp(18px,2.4vw,26px);font-size:clamp(10.5px,1.35vw,12.5px);
+    letter-spacing:2.2px;text-transform:uppercase;color:var(--muted-2);
+  }
 
-  #pStats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+  #pStats{
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:clamp(7px,1vw,10px);margin-bottom:clamp(16px,2.2vw,24px);
+  }
   .stat{
     background:rgba(255,255,255,.035);border:1px solid rgba(120,170,255,.12);
-    border-radius:12px;padding:11px 13px;
+    border-radius:12px;padding:clamp(9px,1.2vw,11px) clamp(11px,1.4vw,13px);
+    min-width:0;
   }
-  .stat span{display:block;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;
-    color:#7b8fb0;margin-bottom:5px}
-  .stat b{font-size:14.5px;font-weight:600;color:#eaf1ff}
-  .stat.wide{grid-column:1/-1}
+  .stat span{
+    display:block;font-size:clamp(9.5px,1.15vw,10.5px);letter-spacing:.8px;
+    text-transform:uppercase;color:var(--muted-2);margin-bottom:5px;line-height:1.3;
+  }
+  .stat b{font-size:var(--stat-b);font-weight:600;color:#eaf1ff;line-height:1.3;word-break:break-word}
 
-  #pDesc{font-size:14.5px;line-height:1.72;color:#a8b8d2;margin:0 0 16px}
+  #pDesc{font-size:var(--body);line-height:1.72;color:#a8b8d2;margin:0 0 16px}
   #pDesc:last-child{margin-bottom:0}
 
   @media (max-width:560px){
-    #panel{width:100vw;border-left:none;padding:38px 24px}
+    :root{--panel-w:100vw;--pad:22px}
+    #panel{
+      border-left:none;
+      box-shadow:0 -20px 60px rgba(0,0,0,.7);
+      padding-top:calc(56px + var(--safe-t));
+    }
+    #pStats{gap:8px}
+    .stat span{font-size:9.5px}
+  }
+
+  @media (max-width:360px){
+    :root{--pad:18px;--title:22px}
+    #pStats{gap:6px}
+    .stat{padding:8px 9px}
+  }
+
+  @media (min-width:768px) and (max-width:1024px){
+    :root{--panel-w:min(400px,80vw);--pad:26px}
+  }
+
+  @media (min-width:1920px){
+    :root{
+      --panel-w:min(520px,80vw);
+      --pad:40px;
+      --title:38px;
+      --body:16px;
+      --stat-b:16px;
+    }
+    .stat span{font-size:11.5px}
+    #pType{font-size:13px}
+  }
+
+  @media (min-width:2560px){
+    :root{
+      --panel-w:min(640px,80vw);
+      --pad:52px;
+      --title:46px;
+      --body:19px;
+      --stat-b:19px;
+    }
+    #pStats{grid-template-columns:1fr 1fr 1fr}
+    .stat span{font-size:13px}
+    #pType{font-size:15px;letter-spacing:2.8px}
+    #close{width:56px;height:56px;font-size:24px}
+  }
+
+  @media (min-width:3840px){
+    :root{
+      --panel-w:min(900px,80vw);
+      --pad:72px;
+      --title:64px;
+      --body:26px;
+      --stat-b:26px;
+    }
+    #pStats{grid-template-columns:1fr 1fr 1fr}
+    .stat span{font-size:18px}
+    #pType{font-size:20px}
+    #hint{font-size:20px;padding:16px 32px}
+  }
+
+  @media (max-height:500px) and (orientation:landscape){
+    :root{--pad:20px}
+    .orb{width:48px;height:48px;margin-bottom:12px}
+    #panel{padding-top:calc(28px + var(--safe-t));padding-bottom:calc(20px + var(--safe-b))}
+    #pStats{grid-template-columns:1fr 1fr 1fr}
+    #pType{margin-bottom:14px}
+    #pDesc{line-height:1.55;margin-bottom:10px}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
   }
 </style>
 </head>
 <body>
 
-<canvas id="sky"></canvas>
+<canvas id="sky" aria-label="Интерактивная карта Солнечной системы"></canvas>
 <div id="hint">Нажмите на планету или Солнце, чтобы узнать больше</div>
 
-<aside id="panel">
-  <button id="close" aria-label="Закрыть">✕</button>
-  <div class="orb" id="orb"></div>
+<aside id="panel" role="dialog" aria-modal="false" aria-labelledby="pName">
+  <button id="close" aria-label="Закрыть панель">✕</button>
+  <div class="orb" id="orb" aria-hidden="true"></div>
   <h2 id="pName">—</h2>
   <p id="pType">—</p>
   <div id="pStats"></div>
@@ -99,7 +207,7 @@
 "use strict";
 const TAU = Math.PI * 2;
 const canvas = document.getElementById('sky');
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d', { alpha: false });
 
 const SUN = {
   name: 'Солнце',
@@ -115,10 +223,7 @@ const SUN = {
     ['Состав', '73 % водорода, 25 % гелия'],
     ['Вращение на экваторе', '25,4 суток']
   ],
-  desc: [
-    'Солнце — обычная жёлтая звезда главной последовательности, но именно оно задаёт всё: свет, тепло, погоду, климат и само существование жизни на Земле. Внутри идёт термоядерный синтез — каждую секунду около 600 миллионов тонн водорода превращаются в гелий, а выделяющаяся энергия добирается до поверхности десятки тысяч лет.',
-    'Свет от Солнца летит до Земли 8 минут 20 секунд, поэтому мы всегда видим его с задержкой. Светимость звезды медленно растёт примерно на 1 % каждые 100 миллионов лет, а через 5 миллиардов лет Солнце раздуется в красный гигант и поглотит ближайшие планеты.'
-  ].join(' ')
+  desc: 'Солнце — обычная жёлтая звезда главной последовательности, но именно оно задаёт всё: свет, тепло, погоду, климат и само существование жизни на Земле. Внутри идёт термоядерный синтез — каждую секунду около 600 миллионов тонн водорода превращаются в гелий, а выделяющаяся энергия добирается до поверхности десятки тысяч лет. Свет от Солнца летит до Земли 8 минут 20 секунд, поэтому мы всегда видим его с задержкой. Светимость звезды медленно растёт примерно на 1 % каждые 100 миллионов лет, а через 5 миллиардов лет Солнце раздуется в красный гигант и поглотит ближайшие планеты.'
 };
 
 const PLANETS = [
@@ -136,10 +241,7 @@ const PLANETS = [
       ['Гравитация','0,38 g'],
       ['Спутники','нет']
     ],
-    desc:[
-      'Самая маленькая и самая быстрая планета Солнечной системы. Атмосферы практически нет, поэтому перепады температур здесь самые большие — днём поверхность раскаляется до +427 °C, а ночью остывает до −173 °C.',
-      'Кратеры на Меркурии почти не сглаживаются эрозией, поэтому поверхность выглядит как лунная и хранит следы древних столкновений. В полярных кратерах, куда никогда не попадает солнечный свет, обнаружен водяной лёд. У планеты огромное железное ядро — оно занимает около 85 % радиуса.'
-    ].join(' ')
+    desc:'Самая маленькая и самая быстрая планета Солнечной системы. Атмосферы практически нет, поэтому перепады температур здесь самые большие — днём поверхность раскаляется до +427 °C, а ночью остывает до −173 °C. Кратеры почти не сглаживаются эрозией, поэтому поверхность выглядит как лунная и хранит следы древних столкновений. В полярных кратерах, куда никогда не попадает солнечный свет, обнаружен водяной лёд. У планеты огромное железное ядро — оно занимает около 85 % радиуса.'
   },
   {
     name:'Венера', dist:0.225, r:0.0138, period:0.6152,
@@ -155,10 +257,7 @@ const PLANETS = [
       ['Давление','92 атм'],
       ['Спутники','нет']
     ],
-    desc:[
-      'Самая горячая планета системы: плотная атмосфера из углекислого газа создаёт чудовищный парниковый эффект, из-за которого поверхность разогрета сильнее, чем у Меркурия, хотя Венера дальше от Солнца.',
-      'Венера вращается в обратную сторону по сравнению с большинством планет и делает оборот медленнее, чем летит по орбите, — сутки здесь длиннее года. Облака состоят из капелек серной кислоты, а давление у поверхности примерно как на глубине 900 метров в океане.'
-    ].join(' ')
+    desc:'Самая горячая планета системы: плотная атмосфера из углекислого газа создаёт чудовищный парниковый эффект, из-за которого поверхность разогрета сильнее, чем у Меркурия, хотя Венера дальше от Солнца. Она вращается в обратную сторону по сравнению с большинством планет и делает оборот медленнее, чем летит по орбите, — сутки здесь длиннее года. Облака состоят из капелек серной кислоты, а давление у поверхности примерно как на глубине 900 метров в океане.'
   },
   {
     name:'Земля', dist:0.30, r:0.0145, period:1,
@@ -174,10 +273,7 @@ const PLANETS = [
       ['Гравитация','1 g'],
       ['Спутники','1 — Луна']
     ],
-    desc:[
-      'Единственный известный мир с жидкой водой на поверхности и жизнью. Атмосфера на 78 % состоит из азота и на 21 % из кислорода, а магнитное поле защищает планету от солнечного ветра и жёсткой радиации.',
-      'Наклон оси в 23,4° даёт смену времён года, а Луна стабилизирует этот наклон и создаёт приливы. Земля — самая плотная планета Солнечной системы, а её поверхность на 71 % покрыта океанами, причём большую часть пресной воды планета хранит в ледниках.'
-    ].join(' ')
+    desc:'Единственный известный мир с жидкой водой на поверхности и жизнью. Атмосфера на 78 % состоит из азота и на 21 % из кислорода, а магнитное поле защищает планету от солнечного ветра и жёсткой радиации. Наклон оси в 23,4° даёт смену времён года, а Луна стабилизирует этот наклон и создаёт приливы. Земля — самая плотная планета Солнечной системы, а её поверхность на 71 % покрыта океанами, причём большую часть пресной воды планета хранит в ледниках.'
   },
   {
     name:'Марс', dist:0.375, r:0.0115, period:1.8808,
@@ -193,10 +289,7 @@ const PLANETS = [
       ['Гравитация','0,38 g'],
       ['Спутники','2 — Фобос и Деймос']
     ],
-    desc:[
-      '«Красная планета» обязана оттенком оксиду железа в грунте — по сути, поверхность покрыта ржавчиной. Здесь находится высочайший вулкан системы, Олимп, высотой 21 км, и гигантский каньон Долины Маринер длиной около 4 000 км.',
-      'Атмосфера тонкая и на 95 % углекислотная, поэтому пыльные бури могут накрывать всю планету целиком. Вода сохранилась в полярных шапках и, вероятно, под поверхностью. У Марса два небольших спутника неправильной формы — Фобос и Деймос.'
-    ].join(' ')
+    desc:'«Красная планета» обязана оттенком оксиду железа в грунте — по сути, поверхность покрыта ржавчиной. Здесь находится высочайший вулкан системы, Олимп, высотой 21 км, и гигантский каньон Долины Маринер длиной около 4 000 км. Атмосфера тонкая и на 95 % углекислотная, поэтому пыльные бури могут накрывать всю планету целиком. Вода сохранилась в полярных шапках и, вероятно, под поверхностью. У Марса два небольших спутника неправильной формы — Фобос и Деймос.'
   },
   {
     name:'Юпитер', dist:0.51, r:0.0330, period:11.862,
@@ -212,10 +305,7 @@ const PLANETS = [
       ['Гравитация','2,53 g'],
       ['Спутники','95']
     ],
-    desc:[
-      'Крупнейшая планета Солнечной системы — в неё поместилось бы 1 300 Земель, а масса Юпитера вдвое больше массы всех остальных планет вместе взятых. Это газовый гигант без твёрдой поверхности: под облаками давление и температура растут настолько, что водород переходит в жидкое металлическое состояние.',
-      'Большое красное пятно — гигантский ураган, который наблюдают более 350 лет, и он до сих пор больше Земли. У Юпитера мощнейшее магнитное поле в системе и 95 известных спутников, включая вулканическую Ио и подлёдный океан Европы.'
-    ].join(' ')
+    desc:'Крупнейшая планета Солнечной системы — в неё поместилось бы 1 300 Земель, а масса Юпитера вдвое больше массы всех остальных планет вместе взятых. Это газовый гигант без твёрдой поверхности: под облаками давление и температура растут настолько, что водород переходит в жидкое металлическое состояние. Большое красное пятно — гигантский ураган, который наблюдают более 350 лет, и он до сих пор больше Земли. У Юпитера мощнейшее магнитное поле в системе и 95 известных спутников, включая вулканическую Ио и подлёдный океан Европы.'
   },
   {
     name:'Сатурн', dist:0.64, r:0.0285, period:29.457,
@@ -231,10 +321,7 @@ const PLANETS = [
       ['Гравитация','1,06 g'],
       ['Спутники','146']
     ],
-    desc:[
-      'Знаменит системой колец из миллиардов частиц льда и камня — от пылинок до глыб размером с дом. Кольца тянутся на сотни тысяч километров, но их толщина всего десятки метров, а средняя плотность самой планеты меньше плотности воды.',
-      'Сатурн — второй по массе газовый гигант и рекордсмен по числу спутников: их известно 146. Крупнейший, Титан, единственный в системе обладает плотной атмосферой и морями из жидкого метана. Ещё один спутник, Энцелад, выбрасывает в космос гейзеры водяного пара.'
-    ].join(' ')
+    desc:'Знаменит системой колец из миллиардов частиц льда и камня — от пылинок до глыб размером с дом. Кольца тянутся на сотни тысяч километров, но их толщина всего десятки метров, а средняя плотность самой планеты меньше плотности воды. Сатурн — второй по массе газовый гигант и рекордсмен по числу спутников: их известно 146. Крупнейший, Титан, единственный в системе обладает плотной атмосферой и морями из жидкого метана. Ещё один спутник, Энцелад, выбрасывает в космос гейзеры водяного пара.'
   },
   {
     name:'Уран', dist:0.775, r:0.0205, period:84.011,
@@ -250,10 +337,7 @@ const PLANETS = [
       ['Наклон оси','97,8°'],
       ['Спутники','28']
     ],
-    desc:[
-      'Единственная планета, лежащая «на боку»: её ось наклонена почти на 98°, поэтому полюса по 42 года находятся то на свету, то в тени. Метан в атмосфере поглощает красный свет и придаёт планете характерный бирюзовый оттенок.',
-      'Уран — ледяной гигант: под водородно-гелиевой оболочкой скрыта мантия из водного, аммиачного и метанового льда. Здесь зафиксирована самая низкая температура в системе — до −224 °C, а его кольца, открытые в 1977 году, очень тонкие и тёмные. Планету пока посетил только один аппарат — «Вояджер-2» в 1986 году.'
-    ].join(' ')
+    desc:'Единственная планета, лежащая «на боку»: её ось наклонена почти на 98°, поэтому полюса по 42 года находятся то на свету, то в тени. Метан в атмосфере поглощает красный свет и придаёт планете характерный бирюзовый оттенок. Уран — ледяной гигант: под водородно-гелиевой оболочкой скрыта мантия из водного, аммиачного и метанового льда. Здесь зафиксирована самая низкая температура в системе — до −224 °C, а его кольца, открытые в 1977 году, очень тонкие и тёмные. Планету пока посетил только один аппарат — «Вояджер-2» в 1986 году.'
   },
   {
     name:'Нептун', dist:0.89, r:0.0198, period:164.79,
@@ -269,10 +353,7 @@ const PLANETS = [
       ['Ветер','до 2 100 км/ч'],
       ['Спутники','16']
     ],
-    desc:[
-      'Самая удалённая планета и самая ветреная — скорость ветра достигает 2 100 км/ч, хотя источник такой энергии до сих пор не до конца понятен. Нептун был вычислен «на кончике пера» по возмущениям орбиты Урана и открыт в 1846 году, что стало триумфом небесной механики.',
-      'Сутки здесь длятся 16 часов, а год — почти 165 земных лет. На планете наблюдались тёмные пятна размером с Землю, которые возникают и исчезают за несколько лет. Крупнейший спутник, Тритон, движется в обратную сторону и, скорее всего, является захваченным объектом пояса Койпера.'
-    ].join(' ')
+    desc:'Самая удалённая планета и самая ветреная — скорость ветра достигает 2 100 км/ч, хотя источник такой энергии до сих пор не до конца понятен. Нептун был вычислен «на кончике пера» по возмущениям орбиты Урана и открыт в 1846 году, что стало триумфом небесной механики. Сутки здесь длятся 16 часов, а год — почти 165 земных лет. На планете наблюдались тёмные пятна размером с Землю, которые возникают и исчезают за несколько лет. Крупнейший спутник, Тритон, движется в обратную сторону и, скорее всего, является захваченным объектом пояса Койпера.'
   }
 ];
 
@@ -306,6 +387,7 @@ function resize() {
   sunR = Math.max(16, maxR * 0.075);
 }
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 120));
 
 function drawStars(t) {
   for (const s of stars) {
@@ -466,36 +548,60 @@ const descEl = document.getElementById('pDesc');
 const hint   = document.getElementById('hint');
 
 let selected = null;
-const mouse = { x: -9999, y: -9999 };
+const pointer = { x: -9999, y: -9999, active: false };
 
 function hitTest(mx, my) {
   for (const p of PLANETS) {
     if (p._x === undefined) continue;
     const dx = mx - p._x, dy = my - p._y;
-    const rad = Math.max(p._r + 11, 17);
-    if (dx * dx + dy * dy < rad * rad) return p;
+    const minR = Math.max(p._r + 14, 22);
+    if (dx * dx + dy * dy < minR * minR) return p;
   }
   const dx = mx - cx, dy = my - cy;
-  const sr = sunR + 8;
+  const sr = sunR + 12;
   if (dx * dx + dy * dy < sr * sr) return SUN;
   return null;
 }
 
-canvas.addEventListener('mousemove', e => {
+function getLocal(e) {
   const rect = canvas.getBoundingClientRect();
-  mouse.x = e.clientX - rect.left;
-  mouse.y = e.clientY - rect.top;
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+canvas.addEventListener('mousemove', e => {
+  const p = getLocal(e);
+  pointer.x = p.x; pointer.y = p.y; pointer.active = true;
 });
-canvas.addEventListener('mouseleave', () => { mouse.x = mouse.y = -9999; });
+canvas.addEventListener('mouseleave', () => {
+  pointer.active = false;
+  pointer.x = pointer.y = -9999;
+});
 
 canvas.addEventListener('click', e => {
-  const rect = canvas.getBoundingClientRect();
-  const hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+  const p = getLocal(e);
+  const hit = hitTest(p.x, p.y);
   if (hit) {
     selected = hit;
     openInfo(hit);
   }
 });
+
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length !== 1) return;
+  const p = getLocal(e.touches[0]);
+  pointer.x = p.x; pointer.y = p.y; pointer.active = true;
+}, { passive: true });
+
+canvas.addEventListener('touchend', e => {
+  if (e.changedTouches.length !== 1) return;
+  const p = getLocal(e.changedTouches[0]);
+  pointer.x = p.x; pointer.y = p.y; pointer.active = false;
+  const hit = hitTest(p.x, p.y);
+  if (hit) {
+    selected = hit;
+    openInfo(hit);
+  }
+}, { passive: true });
 
 function openInfo(obj) {
   nameEl.textContent = obj.name;
@@ -521,10 +627,24 @@ canvas.addEventListener('dblclick', () => {
   selected = null;
 });
 
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    selected = null;
+  }
+});
+
+let lastFrame = 0;
 function frame(now) {
+  requestAnimationFrame(frame);
+
+  if (now - lastFrame < 1000 / 60) return;
+  lastFrame = now;
+
   const t = now / 1000;
 
-  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#04050a';
+  ctx.fillRect(0, 0, W, H);
 
   drawStars(t);
   drawOrbits();
@@ -542,30 +662,30 @@ function frame(now) {
     ctx.setLineDash([]);
   }
 
-  const hit = hitTest(mouse.x, mouse.y);
-  canvas.style.cursor = hit ? 'pointer' : 'default';
+  if (pointer.active) {
+    const hit = hitTest(pointer.x, pointer.y);
+    canvas.style.cursor = hit ? 'pointer' : 'default';
 
-  if (hit && hit !== SUN && hit._x !== undefined) {
-    ctx.beginPath();
-    ctx.arc(hit._x, hit._y, hit._r + 8, 0, TAU);
-    ctx.strokeStyle = 'rgba(180,215,255,0.30)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (hit && hit !== SUN && hit._x !== undefined) {
+      ctx.beginPath();
+      ctx.arc(hit._x, hit._y, hit._r + 8, 0, TAU);
+      ctx.strokeStyle = 'rgba(180,215,255,0.30)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
-    ctx.font = '500 12.5px "Segoe UI", system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(210,228,255,0.9)';
-    ctx.fillText(hit.name, hit._x, hit._y - hit._r - 16);
+      ctx.font = '500 12.5px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(210,228,255,0.9)';
+      ctx.fillText(hit.name, hit._x, hit._y - hit._r - 16);
+    }
+
+    if (hit === SUN) {
+      ctx.font = '500 12.5px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,225,170,0.95)';
+      ctx.fillText('Солнце', cx, cy - sunR - 16);
+    }
   }
-
-  if (hit === SUN) {
-    ctx.font = '500 12.5px "Segoe UI", system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255,225,170,0.95)';
-    ctx.fillText('Солнце', cx, cy - sunR - 16);
-  }
-
-  requestAnimationFrame(frame);
 }
 
 resize();
